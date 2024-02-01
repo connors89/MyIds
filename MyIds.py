@@ -4,33 +4,47 @@
 import tkinter
 from pathlib import Path
 from tkinter import messagebox
-import easygui
+# import easygui
 import spotipy
+import oauth2
 from spotipy.oauth2 import SpotifyClientCredentials
 import concurrent.futures
 import os
 import yt_dlp
 import ffmpeg
-import concurrent.futures
 import subprocess
 import tkinter as tk
 from pathlib import Path
-
-
+import logging
 from tkinter import *
+
+# IMAGES :   ----    'image_1.png', 'entry_1.png', 'entry_2.png', 'entry_3.png', 'entry_4.png', 'button_1.png', 'button_2.png', 'button_3.png', 'button_4.png'   ------ 
 # Explicit imports to satisfy Flake8
 # from tkinter import Tk, Canvas, Entry, Text, Button, PhotoImage, messagebox
 
+"""
+DATA_FILES = ['image_1.png', 'entry_1.png', 'entry_2.png', 'entry_3.png', 'entry_4.png', 'button_1.png', 'button_2.png', 'button_3.png', 'button_4.png']
+# OPTIONS = {'argv_emulation': False, 'includes': ['tkinter', 'pathlib', 'spotipy', 'spotipy.oauth2' 'concurrent.futures', 'os', 'yt-dlp', 'ffmpeg', 'subprocess', 'logging']}
+"""
+
+
+# $ python setup.py py2app -A
+
+# $ rm -rf build dist
+
+# $ python setup.py py2app
 
 
 
 # OUTPUT_PATH = Path(__file__).parent
-OUTPUT_PATH = str(Path.home() / "Downloads")
-ASSETS_PATH = OUTPUT_PATH / Path(r"/Users/connorsingh/Desktop/Tkint2/assets/frame0")
+output_path = str(Path.home() / "Downloads")
+# OUTPUT_PATH = Path(__file__).parent
+ASSETS_PATH = output_path / Path(r"/Users/connorsingh/Desktop/Creatives/Coding Works/PYCHARM/Tkint2/assets/frame0")
 
 # ------------------------------------------------------
 # ORDER:
 #   Side functions/ main buttons/ converter functions/ GUI
+
 
 
 def notify():
@@ -73,12 +87,28 @@ def entryTest():
     print("entry 3 is:", entry_3.get())
     print("entry 4 is:", entry_4.get())
 
+# LOGGING ------------------------------------
+def setup_logging_file(playlist_name):
+    log_file_path = playlist_name.replace(".txt", "_logging.txt")
 
+    # Open the file in write mode ('w'), this will create or overwrite the file
+    with open(log_file_path, 'w') as log_file:
+        log_file.write('Logging file created\n')
+
+def write_to_logging_file(playlist_name, message):
+    log_file_path = playlist_name.replace(".txt", "_logging.txt")
+
+    # Open the file in append mode ('a'), this will append new messages to the existing file
+    with open(log_file_path, 'a') as log_file:
+        log_file.write(message + '\n')
+# --------------------------------------------
 
 # CODE FOR SPOTIFY DOWNLOADER
 def spoti():
     # Function to write songs to text file
     def write_tracks(download_dir):  # Pass the download directory as an argument
+        message = 'Starting write_tracks'
+        write_to_logging_file(playlist_name, message)
         entry_1.insert("0", "Writing songs...")
         with open(playlist_name, 'a', encoding='utf-8') as file:
             for track in playlist['items']:
@@ -88,9 +118,13 @@ def spoti():
         print(f'Success! The playlist tracks have been written to', playlist_name)
 
         os.makedirs(download_dir, exist_ok=True)  # Create the download directory if it doesn't exist
+        message = 'End write_tracks'
+        write_to_logging_file(playlist_name, message)
 
     # Function to download a single YouTube video
     def download_youtube_video(query, output_path):
+        message = 'Starting download_youtube_video'
+        write_to_logging_file(playlist_name, message)
         ydl_opts = {
             'format': 'bestaudio/best',
             'outtmpl': output_path + '.webm',
@@ -101,13 +135,28 @@ def spoti():
                 'preferredquality': '320',
             }],
         }
+        message = 'End yt-dlp options'
+        write_to_logging_file(playlist_name, message)
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+
+            message = 'Starting "ydl" download()'
+            write_to_logging_file(playlist_name, message)
+
             ydl.download([query])
 
+            message = 'end "ydl" download()'
+            write_to_logging_file(playlist_name, message)
+# ----------------------------------------
     # Function to convert .webm to .mp3 using ffmpeg-python
     def convert_to_mp3(input_path, output_path):
-        input_stream = ffmpeg.input(input_path)
+        message = 'Starting convert_to_mp3'
+        # print(message)
+        write_to_logging_file(playlist_name, message)
+        input_stream = ffmpeg.input(input_path + '.webm')
         output_stream = ffmpeg.output(input_stream, output_path + '.mp3')
+        message = ' still convert_to_mp3'
+        write_to_logging_file(playlist_name, message)
         ffmpeg.run(output_stream)
 
     def convert_to_wav(input_path, output_path):
@@ -117,6 +166,8 @@ def spoti():
 
     # Function to remove .webm files
     def remove_webm_files(folder):
+        message = 'Start remove_webm_files'
+        write_to_logging_file(playlist_name, message)
         for filename in os.listdir(folder):
             if filename.endswith('.webm') or \
                     filename.endswith('.webm.ytdl') or \
@@ -126,7 +177,13 @@ def spoti():
 
                 # Function to process a list of songs from a .txt file
 
+# -------------------------------------------------------------------------------------------------
     def process_songs_WAV(txt_file, download_dir):  # Pass the download directory as an argument
+        # logging message
+        message = 'Starting Process_songs'
+        write_to_logging_file(playlist_name, message)
+
+
         folder_name = os.path.splitext(txt_file)[0]
 
         with open(txt_file, 'r') as file:
@@ -137,29 +194,55 @@ def spoti():
                 title_artist = query.split(' audio')[0]
                 output_path = os.path.join(download_dir, f'{title_artist}')  # Use download_dir here
                 executor.submit(download_youtube_video, query, output_path)
-
         # Wait for all downloads to finish before proceeding
         executor.shutdown()
-
         # Convert .webm to .mp3 in parallel
         with concurrent.futures.ThreadPoolExecutor(max_workers=6) as converter_executor:
             for query in queries:
                 title_artist = query.split(' audio')[0]
                 input_path = os.path.join(download_dir, f'{title_artist}.webm')  # Use download_dir here
                 output_path = os.path.join(download_dir, f'{title_artist}')  # Use download_dir here
-                converter_executor.submit(convert_to_wav, input_path, output_path)
+                converter_executor.submit(convert_to_mp3, input_path, output_path)
         # Remove .webm files after conversion
-        remove_webm_files(download_dir)  # Use download_dir here
+        # remove_webm_files(download_dir)  # Use download_dir here"""
+    
+    """def process_songs_WAV(txt_file, download_dir):
+        playlist_name = os.path.splitext(txt_file)[0]
+
+        with open(txt_file, 'r') as file:
+            queries = [f'{line.strip()} audio' for line in file]
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            for query in queries:
+                title_artist = query.split(' audio')[0]
+                output_path = os.path.join(download_dir, title_artist)  # Use download_dir here
+                executor.submit(download_youtube_video, query, output_path)
+
+        # Wait for all downloads to finish before proceeding
+        # executor.shutdown()
+
+        # Convert .webm to .mp3 in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as converter_executor:
+            for query in queries:
+                title_artist = query.split(' audio')[0]
+                input_path = os.path.join(download_dir, f'{title_artist}.webm')  # Use download_dir here
+                output_path = os.path.join(download_dir, title_artist)  # Use download_dir here
+                converter_executor.submit(convert_to_mp3, input_path, output_path)
+
+        # Remove .webm files after conversion
+        # remove_webm_files(download_dir)  # Use download_dir here"""
+
+    
+    
 
     if __name__ == "__main__":
         print("Welcome to the Spotify to MP3/WAV downloader!")
         # txt_file = 'spd26.txt'  # Replace with the name of your .txt file
         # Set your Spotify API credentials
-        client_id = 'd8e2f4c34bea469c9285e7a706cc1d5c'
-        client_secret = '47a56195e3394028aa0e629125815a66'
+        client_id = '7aff072cc7f14815bf6b80a654ee1390'
+        client_secret = 'a533852ec29b4ec7a20231d81e904b24'
         # Initialize the Spotify API client with the Client Credentials Flow
-        sp = spotipy.Spotify(
-            auth_manager=SpotifyClientCredentials(client_id=client_id, client_secret=client_secret))
+        sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=client_id, client_secret=client_secret))
         # Specify the Spotify playlist URI (you don't need user-specific playlists for this flow)
         playlist_uri = entry_4.get()
         # MP3_or_WAV = input("\nPress 1 for MP3\nPress 2 for WAV: ")
@@ -173,6 +256,8 @@ def spoti():
         # Get the user's "Downloads" folder
         downloads_folder = os.path.expanduser("~/Downloads")
         # downloads_folder = os.path.expanduser("~/")
+        script_directory = os.path.dirname(os.path.realpath(__file__))
+        os.chdir(script_directory)
         download_dir = os.path.join(downloads_folder, playlist_name.replace(".txt", ""))
 
         write_tracks(download_dir)  # Pass the download directory as an argument
@@ -200,7 +285,7 @@ def SoundcloudDownload():
     # Get input from GUI
     playlist_url = entry_4.get()
     playlist_name = entry_3.get()
-    entry_1.insert("0", "Writing songs...")
+    # entry_1.insert("0", "Writing songs...")
 
     # Set the Downloads folder path
     downloads_folder = Path.home() / "Downloads"
